@@ -1,16 +1,31 @@
-// Minimaler SW: reicht für Installierbarkeit
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (evt) => evt.waitUntil(self.clients.claim()));
+// Minimaler, robuster SW für GitHub Pages
+const CACHE = 'hello-world-v1';
+const ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
-// (optional) sehr einfacher Cache, nicht zwingend nötig:
+// sofort aktiv werden
+self.addEventListener('install', (evt) => {
+  evt.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', (evt) => {
+  evt.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.map(k => (k === CACHE ? null : caches.delete(k))))))
+  self.clients.claim();
+});
+
+// sehr einfacher Cache-First Fallback
 self.addEventListener('fetch', (evt) => {
+  if (evt.request.method !== 'GET') return;
   evt.respondWith(
-    caches.open('hello-world-cache').then(async cache => {
-      const hit = await cache.match(evt.request, { ignoreSearch: true });
+    caches.match(evt.request, { ignoreSearch: true }).then(hit => {
       if (hit) return hit;
-      const res = await fetch(evt.request).catch(() => null);
-      if (res && res.ok && evt.request.method === 'GET') cache.put(evt.request, res.clone());
-      return res || new Response('offline', { status: 503 });
+      return fetch(evt.request).then(res => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(evt.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match('./index.html'));
     })
   );
 });
