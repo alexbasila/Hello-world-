@@ -1,66 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hello World PWA</title>
 
-  <!-- Cache-Buster anhängen, damit Chrome das neue Manifest auch wirklich lädt -->
-  <link rel="manifest" href="manifest.webmanifest?v=3">
-  <meta name="theme-color" content="#111111">
+  <!-- Cache-Buster, damit Chrome das neue Manifest sicher lädt -->
+  <link rel="manifest" href="manifest.webmanifest?v=4" />
+  <meta name="theme-color" content="#111111" />
 
   <style>
-    :root{color-scheme: dark light}
-    body { font-family: system-ui, sans-serif; margin:0; min-height:100dvh;
-           display:grid; place-items:center; background:#111; color:#fff }
-    .wrap{max-width:800px; padding:32px}
-    h1{font-size:56px; margin:0 0 8px}
-    p{opacity:.8; margin:0 0 16px}
-    button{font-size:18px; padding:10px 20px; border-radius:10px; border:1px solid #fff;
-           background:#fff; color:#111; font-weight:600; cursor:pointer}
+    :root{color-scheme:dark light}
+    body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#111;color:#fff;font-family:system-ui,sans-serif}
+    .wrap{max-width:860px;padding:32px}
+    h1{font-size:56px;line-height:1.0;margin:0 0 10px}
+    p{opacity:.85;margin:0 0 12px}
+    button{font-size:18px;padding:10px 20px;border-radius:10px;border:1px solid #fff;background:#fff;color:#111;font-weight:600;cursor:pointer}
     button[hidden]{display:none}
-    #log{white-space:pre-wrap; font:14px ui-monospace,Menlo,Consolas,monospace;
-         background:#000; padding:12px; border-radius:10px; margin-top:16px}
+    #log{white-space:pre-wrap;font:14px ui-monospace,Menlo,Consolas,monospace;background:#000;border-radius:10px;padding:12px;margin-top:14px}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Hello World<br>PWA</h1>
+    <h1>Hello World<br/>PWA</h1>
     <p>Wenn der Button erscheint, kannst du die App installieren.</p>
     <button id="installBtn" hidden>Installieren</button>
     <div id="log">Log:</div>
   </div>
 
   <script>
-    // Service Worker registrieren (einmalig)
+    const logEl = document.getElementById('log');
+    const btn   = document.getElementById('installBtn');
+    const log   = m => { console.log('[PWA]', m); logEl.textContent += '\n' + m; };
+
+    // SW registrieren
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js', { scope: './' })
         .then(r => log('SW registered: ' + r.scope))
         .catch(e => log('SW error: ' + e));
       navigator.serviceWorker.ready.then(() =>
         log('SW controlled: ' + !!navigator.serviceWorker.controller));
+    } else {
+      log('Kein Service-Worker-Support.');
     }
 
-    let deferredPrompt;
-    const installBtn = document.getElementById('installBtn');
-    const logEl = document.getElementById('log');
-    function log(m){ console.log('[PWA]', m); logEl.textContent += '\n' + m; }
+    // Debug-Infos
+    log('UA: ' + navigator.userAgent);
+    log('display-mode standalone? ' + window.matchMedia('(display-mode: standalone)').matches);
 
+    // Install-Flow
+    let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      installBtn.hidden = false;
+      btn.hidden = false;
       log('beforeinstallprompt: OK – Button freigegeben.');
     });
 
-    installBtn.addEventListener('click', async () => {
+    btn.addEventListener('click', async () => {
       if (!deferredPrompt) { log('Kein Prompt verfügbar.'); return; }
-      installBtn.disabled = true;
+      btn.disabled = true;
       deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice;
       log('userChoice: ' + (choice && choice.outcome));
       deferredPrompt = null;
     });
+
+    window.addEventListener('appinstalled', () => log('appinstalled fired.'));
   </script>
 </body>
 </html>
