@@ -1,47 +1,76 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Hello World PWA</title>
-  <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#ffffff">
+
+  <!-- Manifest (mit Cache-Buster, damit Chrome die NEUE Datei lädt) -->
+  <link rel="manifest" href="./manifest.webmanifest?v=3" />
+  <meta name="theme-color" content="#317EFB" />
+
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 50px; }
-    button { font-size: 18px; padding: 10px 20px; }
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
+           margin: 0; padding: 48px 16px; text-align: center; }
+    h1 { font-size: 40px; margin: 0 0 8px; }
+    p  { font-size: 18px; color: #555; }
+    button { font-size: 18px; padding: 10px 16px; border-radius: 10px;
+             border: 1px solid #111; background: #111; color: #fff; cursor: pointer; }
+    button[hidden] { display: none; }
+    #log { max-width: 880px; margin: 16px auto; white-space: pre-wrap;
+           text-align: left; font: 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+           padding: 12px; border-radius: 10px; background: rgba(0,0,0,.06); }
   </style>
 </head>
 <body>
-  <h1>Hello World PWA</h1>
-  <p>Wenn dieser Button erscheint, kannst du die App installieren.</p>
+  <h1>Hello World<br/>PWA</h1>
+  <p>Wenn der Button erscheint, kannst du die App installieren.</p>
   <button id="installBtn" hidden>Installieren</button>
+  <div id="log">Log:</div>
 
   <script>
-    let deferredPrompt;
+    // kleines Log
+    const logEl = document.getElementById('log');
+    const log = (m) => { console.log('[PWA]', m); logEl.textContent += '\n' + m; };
+
+    // 1) Service Worker registrieren (RELATIVER Pfad reicht auf GitHub Pages)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => log('SW registered: ' + reg.scope))
+        .catch(err => log('SW error: ' + err));
+    } else {
+      log('Kein Service-Worker-Support.');
+    }
+
+    // 2) beforeinstallprompt → Button anzeigen
+    let deferredPrompt = null;
     const installBtn = document.getElementById('installBtn');
 
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
       installBtn.hidden = false;
-
-      installBtn.addEventListener('click', () => {
-        installBtn.hidden = true;
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          deferredPrompt = null;
-        });
-      });
+      log('beforeinstallprompt: bereit');
     });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) { log('Noch kein Prompt verfügbar.'); return; }
+      installBtn.disabled = true;
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice.catch(()=>null);
+      log('userChoice: ' + (choice && choice.outcome));
+      deferredPrompt = null;
+      installBtn.disabled = false;
+    });
+
+    // 3) Wenn SW frisch ist, einmal neu laden empfehlen
+    (async () => {
+      try { await navigator.serviceWorker.ready; } catch {}
+      const controlled = !!navigator.serviceWorker.controller;
+      log('SW controlled: ' + controlled);
+      if (!controlled) log('Hinweis: Seite einmal neu laden, damit der SW die Seite kontrolliert.');
+    })();
   </script>
-  <!-- Service Worker registrieren -->
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('SW registriert'))
-      .catch(err => console.error('SW Fehler:', err));
-  }
-</script>
 </body>
 </html>
